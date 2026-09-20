@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Sistem Monitoring & Simulator Jaringan</title>
+    <meta name="description" content="Dashboard interaktif dan simulator topologi jaringan LAN untuk PC & HP.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=2.1">
+</head>
+<body>
+    <canvas id="network-canvas"></canvas>
+    
+    <main class="dashboard-container">
+        <header>
+            <div class="header-badge"><i class="fa-solid fa-network-wired"></i> Network Topology Lab</div>
+            <h1>Network Hub & Simulator</h1>
+            <p>Rancang topologi jaringan interaktif, atur IP & routing, dan lakukan tes koneksi (Ping)</p>
+        </header>
+
+        <div class="simulator-layout">
+            <!-- Sidebar / Toolbox -->
+            <aside class="toolbox glass">
+                <div class="toolbox-header">
+                    <h3><i class="fa-solid fa-microchip"></i> Tambah Perangkat</h3>
+                    <span class="toolbox-subtitle">Klik kartu atau tombol (+) untuk menambahkan</span>
+                </div>
+                
+                <div class="device-list">
+                    <div class="tool-item" data-type="pc" onclick="window.handleAddDevice('pc', event)" title="Klik atau tarik untuk menambahkan PC">
+                        <div class="tool-icon-wrap pc-color">
+                            <i class="fa-solid fa-desktop"></i>
+                        </div>
+                        <div class="tool-info">
+                            <span class="tool-name">PC Host</span>
+                            <span class="tool-desc">End Device</span>
+                        </div>
+                        <button class="add-device-btn" type="button" aria-label="Tambah PC" onclick="window.handleAddDevice('pc', event)">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="tool-item" data-type="switch" onclick="window.handleAddDevice('switch', event)" title="Klik atau tarik untuk menambahkan Switch">
+                        <div class="tool-icon-wrap switch-color">
+                            <i class="fa-solid fa-network-wired"></i>
+                        </div>
+                        <div class="tool-info">
+                            <span class="tool-name">Switch</span>
+                            <span class="tool-desc">Layer 2 Switch</span>
+                        </div>
+                        <button class="add-device-btn" type="button" aria-label="Tambah Switch" onclick="window.handleAddDevice('switch', event)">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="tool-item" data-type="router" onclick="window.handleAddDevice('router', event)" title="Klik atau tarik untuk menambahkan Router">
+                        <div class="tool-icon-wrap router-color">
+                            <i class="fa-solid fa-server"></i>
+                        </div>
+                        <div class="tool-info">
+                            <span class="tool-name">Router</span>
+                            <span class="tool-desc">Layer 3 Gateway</span>
+                        </div>
+                        <button class="add-device-btn" type="button" aria-label="Tambah Router" onclick="window.handleAddDevice('router', event)">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bottom-actions">
+                    <div class="tool-actions">
+                        <h4><i class="fa-solid fa-sliders"></i> Mode Interaksi</h4>
+                        <div class="mode-btn-group">
+                            <button id="mode-select" class="action-btn active" type="button" title="Pilih & Pindahkan Perangkat"><i class="fa-solid fa-arrow-pointer"></i> Mode Pilih / Geser</button>
+                            <button id="mode-connect" class="action-btn" type="button" title="Hubungkan Perangkat dengan Kabel"><i class="fa-solid fa-link"></i> Sambung Kabel</button>
+                        </div>
+                    </div>
+                    
+                    <div class="tool-actions">
+                        <h4><i class="fa-solid fa-folder-open"></i> Manajemen Topologi</h4>
+                        <div class="tools-grid">
+                            <button id="clear-workspace" class="action-btn danger" type="button"><i class="fa-solid fa-trash-can"></i> Reset</button>
+                            <button id="export-config" class="action-btn" type="button"><i class="fa-solid fa-file-lines"></i> Laporan</button>
+                            <button id="export-json" class="action-btn" type="button"><i class="fa-solid fa-download"></i> Backup</button>
+                            <button id="import-json-btn" class="action-btn" type="button"><i class="fa-solid fa-upload"></i> Restore</button>
+                        </div>
+                        <input type="file" id="import-file" accept=".json" style="display:none;">
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Workspace -->
+            <section class="workspace glass" id="workspace">
+                <div class="workspace-watermark">
+                    <i class="fa-solid fa-diagram-project"></i>
+                    <span>Area Kerja Topologi</span>
+                </div>
+                <svg id="connection-layer">
+                    <!-- Lines and ping packet animations will be injected here -->
+                </svg>
+                <!-- Dropped devices will be injected here -->
+            </section>
+        </div>
+
+        <!-- Terminal / Logs -->
+        <section class="log-section glass">
+            <div class="log-header">
+                <div class="log-title"><i class="fa-solid fa-terminal"></i> Simulation & Event Logs</div>
+                <button id="clear-logs" class="clear-logs-btn" type="button"><i class="fa-solid fa-broom"></i> Bersihkan Log</button>
+            </div>
+            <div class="log-content" id="log-content">
+                <!-- Logs will be inserted here by JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Configuration Modal (IP & Routing Only) -->
+    <div class="modal-overlay" id="config-modal">
+        <div class="modal glass">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <i class="fa-solid fa-sliders" style="color: var(--accent-blue);"></i>
+                    <h3 id="modal-title">Konfigurasi Perangkat</h3>
+                </div>
+                <button class="close-btn" id="close-modal" type="button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="config-group" id="ip-config-group">
+                    <label><i class="fa-solid fa-network-wired"></i> IP Address</label>
+                    <input type="text" id="config-ip" class="keypad-input" placeholder="e.g. 192.168.1.2" inputmode="none" readonly>
+                </div>
+                <div class="config-group" id="subnet-config-group">
+                    <label><i class="fa-solid fa-mask"></i> Subnet Mask</label>
+                    <input type="text" id="config-subnet" class="keypad-input" placeholder="e.g. 255.255.255.0" inputmode="none" readonly>
+                </div>
+                <div class="config-group" id="gateway-config-group">
+                    <label><i class="fa-solid fa-door-open"></i> Default Gateway</label>
+                    <input type="text" id="config-gateway" class="keypad-input" placeholder="e.g. 192.168.1.1" inputmode="none" readonly>
+                </div>
+                
+                <div id="router-interfaces-container" style="display: none; width: 100%;">
+                    <!-- Dynamically filled with eth inputs -->
+                </div>
+
+                <div id="router-static-routes-container" style="display: none; width: 100%; margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="color: var(--text-primary); margin: 0; font-size: 0.95rem;"><i class="fa-solid fa-route"></i> Static Routes</h4>
+                        <button id="add-static-route-btn" type="button" style="background: rgba(56, 189, 248, 0.2); border: 1px solid var(--accent-blue); color: var(--accent-blue); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">+ Tambah Rute</button>
+                    </div>
+                    <div id="static-routes-list" style="display: flex; flex-direction: column; gap: 8px;">
+                        <!-- Dynamically filled with static routes -->
+                    </div>
+                </div>
+
+                <!-- Shortcut Chips for Quick IP/Subnet -->
+                <div class="quick-chips-section">
+                    <span class="chips-label">Preset Cepat:</span>
+                    <div class="chip-group">
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('192.168.1.')">192.168.1.</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('192.168.2.')">192.168.2.</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('255.255.255.0')">255.255.255.0</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('/24')">/24</button>
+                    </div>
+                </div>
+
+                <!-- On-Screen Numeric Keypad -->
+                <div class="ip-keypad" id="config-keypad">
+                    <button type="button" class="kp-btn">1</button>
+                    <button type="button" class="kp-btn">2</button>
+                    <button type="button" class="kp-btn">3</button>
+                    <button type="button" class="kp-btn kp-accent">.</button>
+                    
+                    <button type="button" class="kp-btn">4</button>
+                    <button type="button" class="kp-btn">5</button>
+                    <button type="button" class="kp-btn">6</button>
+                    <button type="button" class="kp-btn kp-accent">/</button>
+                    
+                    <button type="button" class="kp-btn">7</button>
+                    <button type="button" class="kp-btn">8</button>
+                    <button type="button" class="kp-btn">9</button>
+                    <button type="button" class="kp-btn kp-del"><i class="fa-solid fa-delete-left"></i></button>
+                    
+                    <button type="button" class="kp-btn kp-wide">0</button>
+                    <button type="button" class="kp-btn kp-clear">CLR</button>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: space-between;">
+                <button id="delete-node-btn" class="modal-del-btn" type="button"><i class="fa-solid fa-trash"></i> Hapus</button>
+                <button class="save-btn" id="save-config" type="button"><i class="fa-solid fa-check"></i> Simpan Konfigurasi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dedicated Ping Test Modal -->
+    <div class="modal-overlay" id="ping-modal">
+        <div class="modal glass">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <i class="fa-solid fa-bolt" style="color: var(--accent-yellow);"></i>
+                    <h3 id="ping-modal-title">Tes Koneksi (Ping)</h3>
+                </div>
+                <button class="close-btn" id="close-ping-modal" type="button">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="ping-source-badge" id="ping-source-badge">
+                    <span>Sumber: <strong id="ping-source-name">PC1</strong></span>
+                    <span class="badge-ip" id="ping-source-ip">192.168.1.1</span>
+                </div>
+
+                <div class="config-group">
+                    <label><i class="fa-solid fa-crosshairs"></i> Target IP Address</label>
+                    <input type="text" id="ping-target-input" class="keypad-input" placeholder="e.g. 192.168.1.2" inputmode="none" readonly>
+                </div>
+
+                <!-- Quick Target Device Selector -->
+                <div class="quick-chips-section" id="quick-targets-section">
+                    <span class="chips-label">Pilih Perangkat Tujuan:</span>
+                    <div class="chip-group" id="quick-target-chips">
+                        <!-- Injected dynamically by JS -->
+                    </div>
+                </div>
+
+                <!-- On-Screen Numeric Keypad for Ping -->
+                <div class="ip-keypad" id="ping-keypad">
+                    <button type="button" class="kp-btn">1</button>
+                    <button type="button" class="kp-btn">2</button>
+                    <button type="button" class="kp-btn">3</button>
+                    <button type="button" class="kp-btn kp-accent">.</button>
+                    
+                    <button type="button" class="kp-btn">4</button>
+                    <button type="button" class="kp-btn">5</button>
+                    <button type="button" class="kp-btn">6</button>
+                    <button type="button" class="kp-btn kp-accent">/</button>
+                    
+                    <button type="button" class="kp-btn">7</button>
+                    <button type="button" class="kp-btn">8</button>
+                    <button type="button" class="kp-btn">9</button>
+                    <button type="button" class="kp-btn kp-del"><i class="fa-solid fa-delete-left"></i></button>
+                    
+                    <button type="button" class="kp-btn kp-wide">0</button>
+                    <button type="button" class="kp-btn kp-clear">CLR</button>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;">
+                <button class="save-btn ping-start-btn" id="btn-start-ping" type="button">
+                    <i class="fa-solid fa-paper-plane"></i> Kirim Ping
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interface Selection Modal -->
+    <div class="modal-overlay" id="interface-modal">
+        <div class="modal glass">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <i class="fa-solid fa-plug" style="color: var(--accent-green);"></i>
+                    <h3 id="interface-modal-title">Pilih Port / Interface</h3>
+                </div>
+                <button class="close-btn" id="close-interface-modal" type="button">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 15px; padding-bottom: 15px;">
+                <p style="margin-bottom: 10px; color: var(--text-secondary); font-size: 0.9rem;">Pilih port (eth) untuk menyambungkan perangkat ke Router:</p>
+                <select id="interface-select" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(15,23,42,0.8); color: #fff; border: 1px solid var(--glass-border); font-size: 1rem; outline: none;">
+                    <!-- Options injected via JS -->
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="save-btn" id="save-interface-btn" type="button"><i class="fa-solid fa-link"></i> Sambungkan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Node Context Menu -->
+    <div id="node-context-menu" class="glass context-menu" style="display: none; position: fixed; z-index: 999; flex-direction: column;">
+        <div class="context-menu-header">
+            <span id="ctx-node-name"><i class="fa-solid fa-desktop"></i> Perangkat</span>
+            <button id="ctx-close" class="ctx-close-btn" type="button">&times;</button>
+        </div>
+        <button id="ctx-ping" class="ctx-btn highlight" type="button"><i class="fa-solid fa-bolt"></i> Tes Ping</button>
+        <button id="ctx-config" class="ctx-btn" type="button"><i class="fa-solid fa-gear"></i> Konfigurasi IP</button>
+        <button id="ctx-move" class="ctx-btn" type="button"><i class="fa-solid fa-arrows-up-down-left-right"></i> Pindah Posisi</button>
+        <button id="ctx-delete" class="ctx-btn danger" type="button"><i class="fa-solid fa-trash"></i> Hapus Perangkat</button>
+    </div>
+
+    <script src="script.js?v=2.1"></script>
+</body>
+</html>
