@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.1">
+    <link rel="stylesheet" href="style.css?v=2.7">
 </head>
 <body>
     <canvas id="network-canvas"></canvas>
@@ -21,14 +21,25 @@
             <div class="header-badge"><i class="fa-solid fa-network-wired"></i> Network Topology Lab</div>
             <h1>Network Hub & Simulator</h1>
             <p>Rancang topologi jaringan interaktif, atur IP & routing, dan lakukan tes koneksi (Ping)</p>
+            <div class="header-controls">
+                <button id="btn-toggle-perf" class="header-action-pill" type="button" title="Ganti Mode Performa: Standar vs Lite (Hemat & Ringan untuk HP)">
+                    <i class="fa-solid fa-bolt"></i> <span id="perf-text">Mode: Standar</span>
+                </button>
+                <button id="btn-toggle-fullscreen" class="header-action-pill highlight" type="button" title="Area Kerja Layar Penuh (Full Screen)">
+                    <i class="fa-solid fa-expand"></i> <span id="fs-text">Layar Penuh</span>
+                </button>
+            </div>
         </header>
 
         <div class="simulator-layout">
-            <!-- Sidebar / Toolbox -->
-            <aside class="toolbox glass">
+            <!-- Sidebar / Toolbox (transforms into floating dock in fullscreen/mobile) -->
+            <aside class="toolbox glass" id="toolbox-dock">
                 <div class="toolbox-header">
-                    <h3><i class="fa-solid fa-microchip"></i> Tambah Perangkat</h3>
-                    <span class="toolbox-subtitle">Klik kartu atau tombol (+) untuk menambahkan</span>
+                    <div class="toolbox-title-wrap">
+                        <h3><i class="fa-solid fa-microchip"></i> Panel Alat</h3>
+                        <span class="toolbox-subtitle">Klik kartu atau tombol (+) untuk menambahkan</span>
+                    </div>
+                    <button id="btn-minimize-dock" class="dock-min-btn" type="button" title="Kecilkan / Sembunyikan Panel"><i class="fa-solid fa-chevron-down"></i> Sembunyikan</button>
                 </div>
                 
                 <div class="device-list">
@@ -59,8 +70,13 @@
                     </div>
 
                     <div class="tool-item" data-type="router" onclick="window.handleAddDevice('router', event)" title="Klik atau tarik untuk menambahkan Router">
-                        <div class="tool-icon-wrap router-color">
-                            <i class="fa-solid fa-server"></i>
+                        <div class="tool-icon-wrap router-color" style="border-radius: 50%;">
+                            <svg class="router-cisco-icon" viewBox="0 0 40 40" width="22" height="22">
+                                <path d="M 8 8 L 17 17 M 17 17 L 11 16 M 17 17 L 16 11" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23 23 L 32 32 M 32 32 L 26 31 M 32 32 L 31 26" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M 8 32 L 17 23 M 17 23 L 16 29 M 17 23 L 11 24" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23 17 L 32 8 M 32 8 L 31 14 M 32 8 L 26 9" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                            </svg>
                         </div>
                         <div class="tool-info">
                             <span class="tool-name">Router</span>
@@ -105,13 +121,31 @@
                 </svg>
                 <!-- Dropped devices will be injected here -->
             </section>
+
+            <!-- Floating trigger when dock is minimized -->
+            <button id="btn-expand-dock" class="dock-floating-trigger" type="button" title="Buka Panel Alat Topologi" style="display:none;">
+                <i class="fa-solid fa-toolbox"></i> <span>Buka Panel Alat</span>
+            </button>
+
+            <!-- Fullscreen Mode Top Bar -->
+            <div id="fs-top-bar" class="fs-top-bar glass" style="display: none;">
+                <div class="fs-bar-brand"><i class="fa-solid fa-diagram-project"></i> Area Kerja Topologi</div>
+                <div class="fs-bar-actions">
+                    <button id="fs-perf-btn" class="fs-btn" type="button" title="Ganti Mode Lite / Standar"><i class="fa-solid fa-bolt"></i> <span id="fs-perf-text">Standar</span></button>
+                    <button id="fs-log-btn" class="fs-btn" type="button" title="Buka / Tutup Log Event"><i class="fa-solid fa-terminal"></i> Log</button>
+                    <button id="fs-exit-btn" class="fs-btn danger" type="button" title="Keluar Layar Penuh"><i class="fa-solid fa-compress"></i> Keluar</button>
+                </div>
+            </div>
         </div>
 
         <!-- Terminal / Logs -->
         <section class="log-section glass">
             <div class="log-header">
                 <div class="log-title"><i class="fa-solid fa-terminal"></i> Simulation & Event Logs</div>
-                <button id="clear-logs" class="clear-logs-btn" type="button"><i class="fa-solid fa-broom"></i> Bersihkan Log</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button id="clear-logs" class="clear-logs-btn" type="button"><i class="fa-solid fa-broom"></i> Bersihkan Log</button>
+                    <button id="fs-close-log-btn" class="fs-close-log-btn" type="button" title="Tutup Drawer Log" style="display:none;">&times;</button>
+                </div>
             </div>
             <div class="log-content" id="log-content">
                 <!-- Logs will be inserted here by JS -->
@@ -288,6 +322,6 @@
         <button id="ctx-delete" class="ctx-btn danger" type="button"><i class="fa-solid fa-trash"></i> Hapus Perangkat</button>
     </div>
 
-    <script src="script.js?v=2.1"></script>
+    <script src="script.js?v=2.7"></script>
 </body>
 </html>

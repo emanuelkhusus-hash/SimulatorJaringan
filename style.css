@@ -119,6 +119,52 @@ header p {
     font-weight: 300;
 }
 
+/* Header Controls (Lite Mode & Full Screen toggles) */
+.header-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.header-action-pill {
+    background: rgba(15, 23, 42, 0.75);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: 9999px;
+    padding: 0.35rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    transition: all 0.2s;
+    font-family: inherit;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.header-action-pill:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: var(--accent-blue);
+    color: #fff;
+    transform: translateY(-1px);
+}
+
+.header-action-pill.highlight {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(168, 85, 247, 0.2));
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #fff;
+}
+
+.header-action-pill.active-lite {
+    background: rgba(52, 211, 153, 0.25);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
 /* Simulator Layout */
 .simulator-layout {
     display: flex;
@@ -149,8 +195,37 @@ header p {
 
 .toolbox-header {
     display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.toolbox-title-wrap {
+    display: flex;
     flex-direction: column;
     gap: 0.2rem;
+}
+
+.dock-min-btn {
+    display: none;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.dock-min-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fff;
+    border-color: var(--danger-red);
 }
 
 .toolbox-header h3 {
@@ -454,6 +529,83 @@ header p {
     to { stroke-dashoffset: 0; }
 }
 
+/* Cable Port Badge (Port Interface at cable root) */
+.cable-port-badge {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 8;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(52, 211, 153, 0.65);
+    border-radius: 5px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: var(--accent-green);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55), 0 0 8px rgba(52, 211, 153, 0.2);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    user-select: none;
+    line-height: 1.2;
+    transition: left 0.05s ease, top 0.05s ease;
+}
+
+/* Router IP Badge (Displayed above Router icon) */
+.router-ip-badge {
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 12;
+}
+
+.router-ip-item {
+    background: rgba(10, 15, 26, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1.2;
+}
+
+.router-ip-item .rip-eth {
+    color: var(--accent-green);
+    font-weight: 700;
+    font-size: 0.7rem;
+}
+
+.router-ip-item .rip-val {
+    color: var(--accent-blue);
+    font-weight: 600;
+}
+
+.router-ip-item.no-ip {
+    border-color: rgba(251, 191, 36, 0.4);
+    color: var(--accent-yellow);
+    font-size: 0.7rem;
+    font-style: italic;
+}
+
 /* Device Nodes on Workspace */
 .node {
     position: absolute;
@@ -523,8 +675,45 @@ header p {
 .node[data-type="switch"] { border-top: 3px solid var(--accent-purple); }
 .node[data-type="switch"] i { color: var(--accent-purple); }
 
-.node[data-type="router"] { border-top: 3px solid var(--accent-green); }
-.node[data-type="router"] i { color: var(--accent-green); }
+.node[data-type="router"] {
+    border-radius: 50% !important;
+    border: 2.5px solid var(--accent-green) !important;
+    background: radial-gradient(circle at 35% 35%, rgba(16, 44, 38, 0.95), rgba(10, 15, 26, 0.98)) !important;
+    box-shadow: 0 0 16px var(--accent-green-glow), 0 8px 24px rgba(0, 0, 0, 0.5);
+    padding: 0;
+    gap: 0;
+}
+
+.node[data-type="router"]:hover {
+    border-color: #6ee7b7 !important;
+    box-shadow: 0 0 24px rgba(52, 211, 153, 0.45), 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.node[data-type="router"] .node-label {
+    display: none !important; /* Huruf / nama Router dimasukkan ke dalam icon */
+}
+
+.router-cisco-icon {
+    pointer-events: none;
+    transition: transform 0.2s ease;
+    filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.45));
+}
+
+.node[data-type="router"]:hover .router-cisco-icon {
+    transform: scale(1.08);
+}
+
+.router-inner-name {
+    font-size: 8.5px;
+    font-weight: 800;
+    color: #f8fafc;
+    letter-spacing: 0.4px;
+    margin-top: -1px;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+    user-select: none;
+}
 
 .node-label {
     position: absolute;
@@ -1138,4 +1327,269 @@ header p {
         padding: 0.55rem 0.1rem;
         font-size: 1rem;
     }
+
+    .dock-min-btn {
+        display: inline-flex !important;
+    }
+}
+
+/* ==========================================================================
+   LITE MODE (Performa Ringan & Hemat Daya untuk HP Spesifikasi Rendah)
+   ========================================================================== */
+body.lite-mode {
+    background: #090d16 !important;
+}
+
+body.lite-mode #network-canvas {
+    display: none !important;
+}
+
+body.lite-mode .glass,
+body.lite-mode .modal,
+body.lite-mode .node,
+body.lite-mode .toolbox,
+body.lite-mode .log-section,
+body.lite-mode .context-menu,
+body.lite-mode .fs-top-bar,
+body.lite-mode .cable-port-badge,
+body.lite-mode .router-ip-item {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.lite-mode .node[data-type="router"] {
+    background: #064e3b !important;
+    box-shadow: 0 0 8px rgba(52, 211, 153, 0.4) !important;
+}
+
+body.lite-mode .cable.active {
+    filter: none !important;
+    stroke: #34d399 !important;
+}
+
+body.lite-mode .cable:hover {
+    filter: none !important;
+    stroke: #ef4444 !important;
+}
+
+body.lite-mode .node.connecting {
+    animation: none !important;
+    border-color: #fbbf24 !important;
+    box-shadow: 0 0 0 2px #fbbf24 !important;
+}
+
+body.lite-mode .node.newly-added {
+    animation: none !important;
+}
+
+body.lite-mode .cable.temp-cable {
+    animation: none !important;
+}
+
+body.lite-mode * {
+    transition: none !important;
+}
+
+/* ==========================================================================
+   FULLSCREEN MODE (Area Kerja Layar Penuh dengan Floating Dock)
+   ========================================================================== */
+body.fullscreen-mode {
+    overflow: hidden !important;
+}
+
+body.fullscreen-mode .dashboard-container {
+    padding: 0 !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    gap: 0 !important;
+}
+
+body.fullscreen-mode header {
+    display: none !important;
+}
+
+body.fullscreen-mode .simulator-layout {
+    height: 100vh !important;
+    gap: 0 !important;
+}
+
+body.fullscreen-mode .workspace {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 50 !important;
+    border-radius: 0 !important;
+    border: none !important;
+}
+
+/* Floating Top Bar in Fullscreen */
+.fs-top-bar {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 92;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    gap: 12px;
+    border-radius: 9999px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    width: min(92vw, 520px);
+}
+
+.fs-bar-brand {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.fs-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fs-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    border-radius: 6px;
+    padding: 4px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+.fs-btn:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--accent-blue);
+    color: #fff;
+}
+
+.fs-btn.danger {
+    color: #fca5a5;
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+.fs-btn.danger:hover {
+    background: var(--danger-red);
+    color: #fff;
+}
+
+/* Floating Dock for Toolbox in Fullscreen Mode */
+body.fullscreen-mode .toolbox {
+    position: fixed !important;
+    bottom: 12px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 90 !important;
+    width: min(94vw, 680px) !important;
+    max-height: 48vh !important;
+    overflow-y: auto !important;
+    border-radius: var(--radius-lg) !important;
+    background: rgba(15, 23, 42, 0.95) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid var(--glass-border) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease !important;
+}
+
+body.fullscreen-mode .dock-min-btn {
+    display: inline-flex !important;
+}
+
+/* Dock Minimized State */
+body.fullscreen-mode.dock-minimized .toolbox,
+body.dock-minimized .toolbox {
+    transform: translate(-50%, calc(100% + 20px)) !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+}
+
+@media (max-width: 860px) {
+    body.dock-minimized .toolbox {
+        display: none !important;
+    }
+}
+
+.dock-floating-trigger {
+    position: fixed !important;
+    bottom: 16px !important;
+    right: 16px !important;
+    z-index: 95 !important;
+    background: linear-gradient(135deg, #0284c7, #4f46e5) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    padding: 10px 18px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.4) !important;
+    cursor: pointer !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-family: inherit;
+    animation: bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dock-floating-trigger:hover {
+    transform: scale(1.05);
+}
+
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Log drawer in Fullscreen Mode */
+body.fullscreen-mode .log-section {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 38vh !important;
+    z-index: 96 !important;
+    border-radius: 16px 16px 0 0 !important;
+    background: rgba(15, 23, 42, 0.98) !important;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6) !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    display: flex !important;
+}
+
+body.fullscreen-mode .log-section.fs-log-open {
+    transform: translateY(0) !important;
+}
+
+body.fullscreen-mode .fs-close-log-btn {
+    display: inline-flex !important;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
 }

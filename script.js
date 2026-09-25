@@ -85,12 +85,182 @@ class Particle {
 }
 for (let i = 0; i < 40; i++) particles.push(new Particle());
 
+let particleAnimId = null;
+let isParticlesRunning = false;
+
 function animateParticles() {
+    if (!isParticlesRunning) return;
     ctx.clearRect(0, 0, width, height);
     particles.forEach(p => { p.update(); p.draw(); });
-    requestAnimationFrame(animateParticles);
+    particleAnimId = requestAnimationFrame(animateParticles);
 }
-animateParticles();
+
+function startParticles() {
+    if (isParticlesRunning) return;
+    isParticlesRunning = true;
+    canvas.style.display = 'block';
+    animateParticles();
+}
+
+function stopParticles() {
+    isParticlesRunning = false;
+    if (particleAnimId) {
+        cancelAnimationFrame(particleAnimId);
+        particleAnimId = null;
+    }
+    canvas.style.display = 'none';
+}
+
+// --- Performance Mode (Lite vs Standard) ---
+let currentPerfMode = localStorage.getItem('simulatorPerfMode') || 'standard';
+
+function setPerfMode(mode, silent = false) {
+    currentPerfMode = mode;
+    localStorage.setItem('simulatorPerfMode', mode);
+    
+    const perfBtn = document.getElementById('btn-toggle-perf');
+    const perfText = document.getElementById('perf-text');
+    const fsPerfBtn = document.getElementById('fs-perf-btn');
+    const fsPerfText = document.getElementById('fs-perf-text');
+    
+    if (mode === 'lite') {
+        document.body.classList.add('lite-mode');
+        stopParticles();
+        if (perfText) perfText.textContent = 'Mode: Lite (Ringan)';
+        if (perfBtn) {
+            perfBtn.classList.add('active-lite');
+            const icon = perfBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-feather';
+        }
+        if (fsPerfText) fsPerfText.textContent = 'Lite';
+        if (fsPerfBtn) {
+            fsPerfBtn.classList.add('active-lite');
+            const icon = fsPerfBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-feather';
+        }
+        if (!silent && typeof addLog === 'function') {
+            addLog('info', 'Mode Lite aktif: Animasi latar & efek grafis berat dimatikan untuk performa optimal di HP.');
+        }
+    } else {
+        document.body.classList.remove('lite-mode');
+        startParticles();
+        if (perfText) perfText.textContent = 'Mode: Standar';
+        if (perfBtn) {
+            perfBtn.classList.remove('active-lite');
+            const icon = perfBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-bolt';
+        }
+        if (fsPerfText) fsPerfText.textContent = 'Standar';
+        if (fsPerfBtn) {
+            fsPerfBtn.classList.remove('active-lite');
+            const icon = fsPerfBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-bolt';
+        }
+        if (!silent && typeof addLog === 'function') {
+            addLog('info', 'Mode Standar aktif: Efek visual penuh dan partikel grafis aktif.');
+        }
+    }
+}
+
+// --- Area Kerja Full Screen & Dock Management ---
+let isFullscreenMode = false;
+let isDockMinimized = false;
+
+function toggleFullscreenMode(forceState) {
+    isFullscreenMode = forceState !== undefined ? forceState : !isFullscreenMode;
+    const fsTopBar = document.getElementById('fs-top-bar');
+    const fsText = document.getElementById('fs-text');
+    const fsBtn = document.getElementById('btn-toggle-fullscreen');
+    const expandDockBtn = document.getElementById('btn-expand-dock');
+    
+    if (isFullscreenMode) {
+        document.body.classList.add('fullscreen-mode');
+        if (fsTopBar) fsTopBar.style.display = 'flex';
+        if (fsText) fsText.textContent = 'Keluar Layar Penuh';
+        if (fsBtn) {
+            const icon = fsBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-compress';
+        }
+        
+        if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (typeof addLog === 'function') addLog('info', 'Area Kerja Layar Penuh diaktifkan.');
+    } else {
+        document.body.classList.remove('fullscreen-mode');
+        document.body.classList.remove('dock-minimized');
+        isDockMinimized = false;
+        if (fsTopBar) fsTopBar.style.display = 'none';
+        if (fsText) fsText.textContent = 'Layar Penuh';
+        if (fsBtn) {
+            const icon = fsBtn.querySelector('i');
+            if (icon) icon.className = 'fa-solid fa-expand';
+        }
+        if (expandDockBtn) expandDockBtn.style.display = 'none';
+        
+        const logSection = document.querySelector('.log-section');
+        if (logSection) logSection.classList.remove('fs-log-open');
+
+        if (document.exitFullscreen && document.fullscreenElement) {
+            document.exitFullscreen().catch(() => {});
+        }
+        if (typeof addLog === 'function') addLog('info', 'Keluar dari Area Kerja Layar Penuh.');
+    }
+    
+    setTimeout(() => {
+        if (typeof updateConnections === 'function') updateConnections();
+    }, 150);
+}
+
+function setDockMinimized(minimized) {
+    isDockMinimized = minimized;
+    const expandDockBtn = document.getElementById('btn-expand-dock');
+    if (minimized) {
+        document.body.classList.add('dock-minimized');
+        if (expandDockBtn) expandDockBtn.style.display = 'inline-flex';
+    } else {
+        document.body.classList.remove('dock-minimized');
+        if (expandDockBtn) expandDockBtn.style.display = 'none';
+    }
+}
+
+// Inisialisasi Mode Performa awal
+setPerfMode(currentPerfMode, true);
+
+// Event Listeners Kontrol Header & Dock
+document.getElementById('btn-toggle-perf')?.addEventListener('click', () => {
+    setPerfMode(currentPerfMode === 'lite' ? 'standard' : 'lite');
+});
+document.getElementById('fs-perf-btn')?.addEventListener('click', () => {
+    setPerfMode(currentPerfMode === 'lite' ? 'standard' : 'lite');
+});
+
+document.getElementById('btn-toggle-fullscreen')?.addEventListener('click', () => {
+    toggleFullscreenMode();
+});
+document.getElementById('fs-exit-btn')?.addEventListener('click', () => {
+    toggleFullscreenMode(false);
+});
+
+document.getElementById('btn-minimize-dock')?.addEventListener('click', () => {
+    setDockMinimized(true);
+});
+document.getElementById('btn-expand-dock')?.addEventListener('click', () => {
+    setDockMinimized(false);
+});
+
+document.getElementById('fs-log-btn')?.addEventListener('click', () => {
+    document.querySelector('.log-section')?.classList.toggle('fs-log-open');
+});
+document.getElementById('fs-close-log-btn')?.addEventListener('click', () => {
+    document.querySelector('.log-section')?.classList.remove('fs-log-open');
+});
+
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && isFullscreenMode) {
+        toggleFullscreenMode(false);
+    }
+});
 
 // --- Network Simulator Core State ---
 const workspace = document.getElementById('workspace');
@@ -179,6 +349,7 @@ document.getElementById('clear-workspace').addEventListener('click', () => {
         nodes = {};
         links = [];
         workspace.querySelectorAll('.node').forEach(n => n.remove());
+        workspace.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
         svgLayer.innerHTML = '';
         svgLayer.appendChild(tempLine);
         addLog('info', 'Area kerja telah dibersihkan.');
@@ -363,15 +534,26 @@ function createNode(type, x, y) {
     el.style.left = `${x}px`;
     el.style.top = `${y}px`;
 
-    const icon = document.createElement('i');
-    icon.className = iconClass;
-    
     const label = document.createElement('div');
     label.className = 'node-label';
     label.innerText = name;
     label.id = `label-${id}`;
 
-    el.appendChild(icon);
+    if (type === 'router') {
+        el.innerHTML = `
+            <svg class="router-cisco-icon" viewBox="0 0 40 40" width="28" height="28">
+                <path d="M 8 8 L 17 17 M 17 17 L 11 16 M 17 17 L 16 11" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M 23 23 L 32 32 M 32 32 L 26 31 M 32 32 L 31 26" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M 8 32 L 17 23 M 17 23 L 16 29 M 17 23 L 11 24" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M 23 17 L 32 8 M 32 8 L 31 14 M 32 8 L 26 9" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+            <span class="router-inner-name">${name}</span>
+        `;
+    } else {
+        const icon = document.createElement('i');
+        icon.className = iconClass;
+        el.appendChild(icon);
+    }
     el.appendChild(label);
     workspace.appendChild(el);
 
@@ -412,11 +594,51 @@ function updateLabel(id) {
     const node = nodes[id];
     if (!node) return;
     const label = document.getElementById(`label-${id}`);
-    if (!label) return;
-    if (node.type === 'pc') {
-        label.innerText = `${node.name} (${node.ip || 'No IP'})`;
-    } else {
-        label.innerText = node.name;
+    if (label) {
+        if (node.type === 'pc') {
+            label.innerText = `${node.name} (${node.ip || 'No IP'})`;
+        } else {
+            label.innerText = node.name;
+        }
+    }
+
+    // Tampilkan informasi IP interface di atas icon Router & update nama di dalam icon
+    if (node.type === 'router') {
+        const innerName = node.element.querySelector('.router-inner-name');
+        if (innerName) {
+            innerName.innerText = node.name;
+        }
+
+        let ipBadge = document.getElementById(`router-ips-${id}`);
+        if (!ipBadge) {
+            ipBadge = document.createElement('div');
+            ipBadge.className = 'router-ip-badge';
+            ipBadge.id = `router-ips-${id}`;
+            node.element.appendChild(ipBadge);
+        }
+
+        const interfaces = Object.keys(node.interfaces || {}).sort();
+        const configuredList = [];
+        interfaces.forEach(eth => {
+            const intf = node.interfaces[eth];
+            if (intf && intf.ipPrefix) {
+                configuredList.push({ eth, ipPrefix: intf.ipPrefix });
+            }
+        });
+
+        if (configuredList.length === 0) {
+            if (interfaces.length > 0) {
+                ipBadge.innerHTML = `<span class="router-ip-item no-ip">Belum ada IP</span>`;
+                ipBadge.style.display = 'flex';
+            } else {
+                ipBadge.style.display = 'none';
+            }
+        } else {
+            ipBadge.innerHTML = configuredList.map(item => 
+                `<span class="router-ip-item"><span class="rip-eth">${item.eth}:</span> <span class="rip-val">${item.ipPrefix}</span></span>`
+            ).join('');
+            ipBadge.style.display = 'flex';
+        }
     }
 }
 
@@ -583,7 +805,7 @@ function handleGlobalMove(e) {
         let y = point.clientY - rect.top - offset.y;
         
         x = Math.max(0, Math.min(x, rect.width - 64));
-        y = Math.max(0, Math.min(y, rect.height - 64));
+        y = Math.max(26, Math.min(y, rect.height - 64));
 
         draggedNode.style.left = `${x}px`;
         draggedNode.style.top = `${y}px`;
@@ -628,7 +850,7 @@ workspace.addEventListener('click', (e) => {
         let y = e.clientY - rect.top - 32;
         
         x = Math.max(0, Math.min(x, rect.width - 64));
-        y = Math.max(0, Math.min(y, rect.height - 64));
+        y = Math.max(26, Math.min(y, rect.height - 64));
         
         const node = nodes[relocatingNodeId];
         node.x = x;
@@ -754,6 +976,7 @@ saveInterfaceBtn.addEventListener('click', () => {
         const selectedEth = interfaceSelect.value;
         
         nodes[routerId].interfaces[selectedEth] = { targetId: otherId, ipPrefix: '' };
+        updateLabel(routerId);
         
         interfaceModal.classList.remove('active');
         pendingConnection = null;
@@ -823,12 +1046,86 @@ function updateConnections() {
         const n1 = nodes[link.n1];
         const n2 = nodes[link.n2];
         if (n1 && n2) {
-            link.element.setAttribute('x1', n1.x + 32);
-            link.element.setAttribute('y1', n1.y + 32);
-            link.element.setAttribute('x2', n2.x + 32);
-            link.element.setAttribute('y2', n2.y + 32);
+            const x1 = n1.x + 32;
+            const y1 = n1.y + 32;
+            const x2 = n2.x + 32;
+            const y2 = n2.y + 32;
+
+            link.element.setAttribute('x1', x1);
+            link.element.setAttribute('y1', y1);
+            link.element.setAttribute('x2', x2);
+            link.element.setAttribute('y2', y2);
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const dist = Math.hypot(dx, dy);
+
+            // Tampilkan badge port interface & IP jika n1 adalah router
+            updatePortBadge(link, 1, n1, n2, x1, y1, dx, dy, dist);
+
+            // Tampilkan badge port interface & IP jika n2 adalah router
+            updatePortBadge(link, 2, n2, n1, x2, y2, -dx, -dy, dist);
         }
     });
+}
+
+function updatePortBadge(link, badgeIdx, routerNode, otherNode, rx, ry, dx, dy, dist) {
+    const badgeKey = `badge${badgeIdx}`;
+    
+    if (routerNode.type !== 'router') {
+        if (link[badgeKey]) {
+            if (workspace.contains(link[badgeKey])) {
+                workspace.removeChild(link[badgeKey]);
+            }
+            link[badgeKey] = null;
+        }
+        return;
+    }
+
+    // Cari interface mana pada router yang terhubung ke otherNode.id
+    let matchedEth = null;
+    let ipPrefix = '';
+    for (const eth in routerNode.interfaces) {
+        if (routerNode.interfaces[eth].targetId === otherNode.id) {
+            matchedEth = eth;
+            ipPrefix = routerNode.interfaces[eth].ipPrefix || '';
+            break;
+        }
+    }
+
+    if (!matchedEth) {
+        if (link[badgeKey]) {
+            if (workspace.contains(link[badgeKey])) {
+                workspace.removeChild(link[badgeKey]);
+            }
+            link[badgeKey] = null;
+        }
+        return;
+    }
+
+    // Hitung posisi pangkal kabel dekat router (offset ~50px dari tengah router)
+    let bx = rx;
+    let by = ry;
+    if (dist > 0) {
+        const offset = Math.min(50, dist * 0.38);
+        bx = rx + (dx / dist) * offset;
+        by = ry + (dy / dist) * offset;
+    }
+
+    if (!link[badgeKey]) {
+        const badge = document.createElement('div');
+        badge.className = 'cable-port-badge';
+        workspace.appendChild(badge);
+        link[badgeKey] = badge;
+    }
+
+    const badge = link[badgeKey];
+    badge.style.left = `${bx}px`;
+    badge.style.top = `${by}px`;
+
+    badge.className = 'cable-port-badge';
+    badge.innerHTML = `<span class="badge-eth">${matchedEth}</span>`;
+    badge.title = `${routerNode.name} ${matchedEth}${ipPrefix ? ': ' + ipPrefix : ' (Belum ada IP)'}`;
 }
 
 function deleteConnection(id1, id2) {
@@ -838,6 +1135,12 @@ function deleteConnection(id1, id2) {
     const link = links[linkIndex];
     if (svgLayer.contains(link.element)) {
         svgLayer.removeChild(link.element);
+    }
+    if (link.badge1 && workspace.contains(link.badge1)) {
+        workspace.removeChild(link.badge1);
+    }
+    if (link.badge2 && workspace.contains(link.badge2)) {
+        workspace.removeChild(link.badge2);
     }
     links.splice(linkIndex, 1);
     
@@ -850,6 +1153,7 @@ function deleteConnection(id1, id2) {
                     break;
                 }
             }
+            updateLabel(id1);
         }
     }
     
@@ -862,6 +1166,7 @@ function deleteConnection(id1, id2) {
                     break;
                 }
             }
+            updateLabel(id2);
         }
     }
     
@@ -1131,13 +1436,56 @@ saveConfigBtn.addEventListener('click', () => {
             }
             if (hasError) return;
             node.staticRoutes = validRoutes;
+            updateLabel(activeNodeId);
 
             addLog('success', `Konfigurasi Router ${node.name} berhasil diperbarui.`);
         }
+        updateConnections();
         saveTopology();
     }
     closeModal();
 });
+
+// Helper to resolve effective source IP for PC or Router
+function getNodeSourceIp(node, targetIpStr) {
+    if (!node) return '';
+    if (node.type === 'pc') {
+        return node.ip || '';
+    }
+    if (node.type === 'router') {
+        const targetIpInt = targetIpStr ? ipToInt(targetIpStr) : 0;
+        // 1. If target matches an interface subnet directly, use that interface's IP
+        if (targetIpInt) {
+            for (const eth in node.interfaces) {
+                const parsed = parsePrefix(node.interfaces[eth].ipPrefix);
+                if (parsed && ((targetIpInt & parsed.maskInt) === (parsed.ipInt & parsed.maskInt))) {
+                    return parsed.ipStr;
+                }
+            }
+            // 2. If target matches a static route, find interface that connects to next-hop
+            for (const r of node.staticRoutes || []) {
+                const parsedDest = parsePrefix(r.dest);
+                if (parsedDest && ((targetIpInt & parsedDest.maskInt) === (parsedDest.ipInt & parsedDest.maskInt))) {
+                    const nextHopInt = ipToInt(r.nextHop);
+                    for (const eth in node.interfaces) {
+                        const parsedIntf = parsePrefix(node.interfaces[eth].ipPrefix);
+                        if (parsedIntf && ((nextHopInt & parsedIntf.maskInt) === (parsedIntf.ipInt & parsedIntf.maskInt))) {
+                            return parsedIntf.ipStr;
+                        }
+                    }
+                }
+            }
+        }
+        // 3. Fallback: return the first configured interface IP
+        for (const eth in node.interfaces) {
+            const parsed = parsePrefix(node.interfaces[eth].ipPrefix);
+            if (parsed && parsed.ipStr) {
+                return parsed.ipStr;
+            }
+        }
+    }
+    return '';
+}
 
 // --- Dedicated Ping Modal Logic ---
 function openPingModal(id) {
@@ -1147,7 +1495,20 @@ function openPingModal(id) {
 
     document.getElementById('ping-modal-title').innerText = `Tes Ping dari ${node.name}`;
     document.getElementById('ping-source-name').innerText = node.name;
-    document.getElementById('ping-source-ip').innerText = node.ip || 'No IP';
+    
+    if (node.type === 'pc') {
+        document.getElementById('ping-source-ip').innerText = node.ip || 'No IP';
+    } else if (node.type === 'router') {
+        const configuredIps = Object.entries(node.interfaces || {})
+            .map(([eth, intf]) => {
+                const parsed = parsePrefix(intf.ipPrefix);
+                return parsed ? `${eth}: ${parsed.ipStr}` : null;
+            })
+            .filter(Boolean);
+        document.getElementById('ping-source-ip').innerText = configuredIps.length > 0 ? configuredIps.join(' | ') : 'Belum ada IP interface';
+    } else {
+        document.getElementById('ping-source-ip').innerText = '-';
+    }
     
     pingTargetInput.value = '';
     selectKeypadInput(pingTargetInput);
@@ -1212,18 +1573,25 @@ btnStartPing.addEventListener('click', () => {
     }
     
     const sourceNode = nodes[activePingNodeId];
-    if (!sourceNode || !sourceNode.ip) {
-        alert("Perangkat sumber belum memiliki IP Address!");
+    if (!sourceNode) return;
+
+    const sourceIp = getNodeSourceIp(sourceNode, targetIp);
+    if (!sourceIp) {
+        if (sourceNode.type === 'router') {
+            alert("Router sumber belum memiliki IP Address pada port ethernet manapun! Silakan konfigurasi IP interface router terlebih dahulu.");
+        } else {
+            alert("Perangkat sumber belum memiliki IP Address!");
+        }
         return;
     }
 
-    addLog('info', `Pinging ${targetIp} dari ${sourceNode.name} (${sourceNode.ip}) dengan 32 byte data:`);
+    addLog('info', `Pinging ${targetIp} dari ${sourceNode.name} (${sourceIp}) dengan 32 byte data:`);
     
     const result = traceL3Path(sourceNode, targetIp);
     closePingModal();
 
     if (result.error) {
-        triggerFailedPing(sourceNode.id, result.error, targetIp);
+        triggerFailedPing(sourceNode.id, result.error, targetIp, sourceIp);
     } else {
         executeHopByHopAnimation(result.paths, targetIp);
     }
@@ -1331,13 +1699,14 @@ function traceL3Path(sourceNode, targetIp) {
     return { paths };
 }
 
-function triggerFailedPing(sourceId, reasonStr, targetIp) {
+function triggerFailedPing(sourceId, reasonStr, targetIp, sourceIpOverride) {
     let count = 0;
     const sourceNode = nodes[sourceId];
+    const sourceIp = sourceIpOverride || (sourceNode ? getNodeSourceIp(sourceNode, targetIp) || sourceNode.name : sourceId);
     let interval = setInterval(() => {
         count++;
         animateFailedPacket(sourceId, reasonStr === "RTO" ? "RTO" : "Unreachable");
-        addLog('error', `Reply from ${sourceNode ? sourceNode.ip || sourceId : sourceId}: ${reasonStr}.`);
+        addLog('error', `Reply from ${sourceIp}: ${reasonStr}.`);
         if (count >= 4) {
             clearInterval(interval);
             addLog('info', `Statistik Ping untuk ${targetIp}: Packets: Sent = 4, Received = 0, Lost = 4 (100% loss)`);
@@ -1391,6 +1760,13 @@ function executeHopByHopAnimation(paths, targetIp) {
     function runSinglePing() {
         if (pingCount >= 4) {
             addLog('info', `Statistik Ping untuk ${targetIp}: Packets: Sent = 4, Received = 4, Lost = 0 (0% loss)`);
+            return;
+        }
+
+        if (!paths || paths.length === 0) {
+            addLog('success', `Reply from ${targetIp}: bytes=32 time<1ms TTL=128`);
+            pingCount++;
+            setTimeout(runSinglePing, 300);
             return;
         }
         
@@ -1597,6 +1973,7 @@ function loadTopology() {
         nodes = {};
         links = [];
         workspace.querySelectorAll('.node').forEach(n => n.remove());
+        workspace.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
         svgLayer.innerHTML = '';
         svgLayer.appendChild(tempLine);
         
@@ -1609,17 +1986,27 @@ function loadTopology() {
             el.style.left = `${n.x}px`;
             el.style.top = `${n.y}px`;
 
-            const icon = document.createElement('i');
-            if (n.type === 'pc') icon.className = 'fa-solid fa-desktop';
-            else if (n.type === 'router') icon.className = 'fa-solid fa-server';
-            else icon.className = 'fa-solid fa-network-wired';
-            
             const label = document.createElement('div');
             label.className = 'node-label';
             label.innerText = n.type === 'pc' ? `${n.name} (${n.ip || 'No IP'})` : n.name;
             label.id = `label-${id}`;
 
-            el.appendChild(icon);
+            if (n.type === 'router') {
+                el.innerHTML = `
+                    <svg class="router-cisco-icon" viewBox="0 0 40 40" width="28" height="28">
+                        <path d="M 8 8 L 17 17 M 17 17 L 11 16 M 17 17 L 16 11" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M 23 23 L 32 32 M 32 32 L 26 31 M 32 32 L 31 26" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M 8 32 L 17 23 M 17 23 L 16 29 M 17 23 L 11 24" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                        <path d="M 23 17 L 32 8 M 32 8 L 31 14 M 32 8 L 26 9" stroke="#34d399" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </svg>
+                    <span class="router-inner-name">${n.name}</span>
+                `;
+            } else {
+                const icon = document.createElement('i');
+                if (n.type === 'pc') icon.className = 'fa-solid fa-desktop';
+                else icon.className = 'fa-solid fa-network-wired';
+                el.appendChild(icon);
+            }
             el.appendChild(label);
             workspace.appendChild(el);
 
@@ -1639,6 +2026,7 @@ function loadTopology() {
             };
             
             setupNodeInteractions(el);
+            updateLabel(id);
         }
         
         const createdLinks = new Set();
