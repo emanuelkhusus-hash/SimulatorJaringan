@@ -1202,22 +1202,89 @@ function setupKeypad(keypadId) {
 setupKeypad('config-keypad');
 setupKeypad('ping-keypad');
 
+// Support physical keyboard typing for active keypad inputs
+window.addEventListener('keydown', (e) => {
+    if (!activeKeypadInput) return;
+    
+    const configModal = document.getElementById('config-modal');
+    const pingModal = document.getElementById('ping-modal');
+    const isModalOpen = (configModal && configModal.classList.contains('active')) || 
+                        (pingModal && pingModal.classList.contains('active'));
+    if (!isModalOpen) return;
+
+    const key = e.key;
+
+    // Allow numeric 0-9, dot, slash
+    if ((key >= '0' && key <= '9') || key === '.' || key === '/') {
+        e.preventDefault();
+        activeKeypadInput.value += key;
+        activeKeypadInput.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (key === 'Backspace') {
+        e.preventDefault();
+        activeKeypadInput.value = activeKeypadInput.value.slice(0, -1);
+        activeKeypadInput.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (key === 'Delete') {
+        e.preventDefault();
+        activeKeypadInput.value = '';
+        activeKeypadInput.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (key === 'Tab') {
+        e.preventDefault();
+        const currentModal = (configModal && configModal.classList.contains('active')) ? configModal : pingModal;
+        const visibleInputs = Array.from(currentModal.querySelectorAll('.keypad-input')).filter(el => el.offsetParent !== null);
+        if (visibleInputs.length > 0) {
+            const currentIndex = visibleInputs.indexOf(activeKeypadInput);
+            const nextIndex = e.shiftKey 
+                ? (currentIndex - 1 + visibleInputs.length) % visibleInputs.length
+                : (currentIndex + 1) % visibleInputs.length;
+            selectKeypadInput(visibleInputs[nextIndex]);
+        }
+    } else if (key === 'Enter') {
+        e.preventDefault();
+        if (configModal && configModal.classList.contains('active')) {
+            document.getElementById('save-config')?.click();
+        } else if (pingModal && pingModal.classList.contains('active')) {
+            document.getElementById('start-ping-btn')?.click();
+        }
+    } else if (key === 'Escape') {
+        e.preventDefault();
+        if (configModal && configModal.classList.contains('active')) {
+            closeModal();
+        } else if (pingModal && pingModal.classList.contains('active')) {
+            closePingModal();
+        }
+    }
+});
+
 // --- Configuration Modal Logic ---
 function renderStaticRoutes(routes) {
     staticRoutesList.innerHTML = '';
+    const header = document.getElementById('static-routes-header');
+    
+    if (!routes || routes.length === 0) {
+        if (header) header.style.display = 'none';
+        staticRoutesList.innerHTML = `
+            <div class="no-routes-placeholder">
+                <i class="fa-solid fa-circle-info" style="color: var(--accent-blue); font-size: 1rem;"></i>
+                <span>Belum ada tabel rute. Klik <strong>+ Tambah Rute</strong> di atas untuk menambahkan rute static.</span>
+            </div>
+        `;
+        return;
+    }
+
+    if (header) header.style.display = 'flex';
+
     routes.forEach((route, idx) => {
         const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.gap = '6px';
+        row.className = 'static-route-row';
         row.innerHTML = `
-            <input type="text" class="route-dest keypad-input" placeholder="Dest: 192.168.2.0/24" value="${route.dest || ''}" style="flex:1;" inputmode="none" readonly>
-            <input type="text" class="route-nexthop keypad-input" placeholder="Next-Hop: 10.0.0.2" value="${route.nextHop || ''}" style="flex:1;" inputmode="none" readonly>
-            <button class="remove-route-btn" data-idx="${idx}" type="button" style="background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; border-radius: 6px; cursor: pointer; padding: 0 10px;"><i class="fa-solid fa-trash"></i></button>
+            <input type="text" class="route-dest keypad-input" placeholder="e.g. 192.168.2.0/24" value="${route.dest || ''}" title="Tujuan Network IP/Prefix" inputmode="none" readonly>
+            <input type="text" class="route-nexthop keypad-input" placeholder="e.g. 10.0.0.2" value="${route.nextHop || ''}" title="IP Next-Hop / Gateway" inputmode="none" readonly>
+            <button class="remove-route-btn" data-idx="${idx}" type="button" title="Hapus Rute"><i class="fa-solid fa-trash-can"></i></button>
         `;
         staticRoutesList.appendChild(row);
     });
     
-    document.querySelectorAll('.remove-route-btn').forEach(btn => {
+    staticRoutesList.querySelectorAll('.remove-route-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.currentTarget.dataset.idx);
             const currentRoutes = getStaticRoutesFromUI();
@@ -1229,10 +1296,14 @@ function renderStaticRoutes(routes) {
 
 function getStaticRoutesFromUI() {
     const routes = [];
-    staticRoutesList.querySelectorAll('div').forEach(row => {
-        const dest = row.querySelector('.route-dest').value.trim();
-        const nextHop = row.querySelector('.route-nexthop').value.trim();
-        routes.push({ dest, nextHop });
+    staticRoutesList.querySelectorAll('.static-route-row').forEach(row => {
+        const destInput = row.querySelector('.route-dest');
+        const nexthopInput = row.querySelector('.route-nexthop');
+        const dest = destInput ? destInput.value.trim() : '';
+        const nextHop = nexthopInput ? nexthopInput.value.trim() : '';
+        if (dest || nextHop) {
+            routes.push({ dest, nextHop });
+        }
     });
     return routes;
 }
@@ -1241,7 +1312,7 @@ addStaticRouteBtn.addEventListener('click', () => {
     const currentRoutes = getStaticRoutesFromUI();
     currentRoutes.push({ dest: '', nextHop: '' });
     renderStaticRoutes(currentRoutes);
-    const lastInput = staticRoutesList.querySelector('div:last-child .route-dest');
+    const lastInput = staticRoutesList.querySelector('.static-route-row:last-child .route-dest');
     if (lastInput) selectKeypadInput(lastInput);
 });
 

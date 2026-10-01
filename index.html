@@ -181,11 +181,22 @@
                     <!-- Dynamically filled with eth inputs -->
                 </div>
 
-                <div id="router-static-routes-container" style="display: none; width: 100%; margin-top: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h4 style="color: var(--text-primary); margin: 0; font-size: 0.95rem;"><i class="fa-solid fa-route"></i> Static Routes</h4>
-                        <button id="add-static-route-btn" type="button" style="background: rgba(56, 189, 248, 0.2); border: 1px solid var(--accent-blue); color: var(--accent-blue); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;">+ Tambah Rute</button>
+                <div id="router-static-routes-container" style="display: none; width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="color: var(--text-primary); margin: 0; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-route" style="color: var(--accent-blue);"></i> Static Routes (Tabel Routing)
+                        </h4>
+                        <button id="add-static-route-btn" type="button" class="add-route-action-btn">
+                            <i class="fa-solid fa-plus"></i> Tambah Rute
+                        </button>
                     </div>
+
+                    <div class="static-routes-header" id="static-routes-header" style="display: none;">
+                        <span class="sr-col-title" style="flex: 1;"><i class="fa-solid fa-bullseye" style="color: var(--accent-blue);"></i> Dst. Network (IP/Prefix)</span>
+                        <span class="sr-col-title" style="flex: 1;"><i class="fa-solid fa-arrow-right-to-bracket" style="color: var(--accent-green);"></i> Next-Hop Gateway</span>
+                        <span class="sr-col-action" style="width: 36px; text-align: center;">Hapus</span>
+                    </div>
+
                     <div id="static-routes-list" style="display: flex; flex-direction: column; gap: 8px;">
                         <!-- Dynamically filled with static routes -->
                     </div>
@@ -197,8 +208,11 @@
                     <div class="chip-group">
                         <button type="button" class="chip-btn" onclick="window.insertPreset('192.168.1.')">192.168.1.</button>
                         <button type="button" class="chip-btn" onclick="window.insertPreset('192.168.2.')">192.168.2.</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('10.0.0.')">10.0.0.</button>
                         <button type="button" class="chip-btn" onclick="window.insertPreset('255.255.255.0')">255.255.255.0</button>
                         <button type="button" class="chip-btn" onclick="window.insertPreset('/24')">/24</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('/30')">/30</button>
+                        <button type="button" class="chip-btn" onclick="window.insertPreset('0.0.0.0/0')">0.0.0.0/0</button>
                     </div>
                 </div>
 

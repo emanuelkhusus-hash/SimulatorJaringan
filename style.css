@@ -909,28 +909,170 @@ header p {
 }
 
 .config-group input {
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.4);
     border: 1px solid var(--glass-border);
-    color: white;
+    color: #ffffff;
     padding: 0.75rem 1rem;
     border-radius: var(--radius-sm);
-    font-family: inherit;
+    font-family: 'Consolas', 'Fira Code', 'Monaco', monospace;
     font-size: 0.95rem;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Keypad Input Styling with glowing active border and cursor pointer */
+/* Keypad Input Styling with high-contrast text and glowing active border */
 .keypad-input {
     cursor: pointer !important;
     user-select: none;
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1px solid var(--glass-border) !important;
+    color: #ffffff !important;
+    font-family: 'Consolas', 'Fira Code', 'Monaco', monospace !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    padding: 0.7rem 0.9rem !important;
+    border-radius: var(--radius-sm) !important;
+    outline: none !important;
+    letter-spacing: 0.5px !important;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, color 0.2s !important;
+    box-sizing: border-box;
+}
+
+.keypad-input::placeholder {
+    color: rgba(148, 163, 184, 0.65) !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 400 !important;
+    font-size: 0.85rem !important;
 }
 
 .keypad-input.active-input, .keypad-input:focus {
     border-color: var(--accent-blue) !important;
-    box-shadow: 0 0 15px var(--accent-blue-glow) !important;
-    background: rgba(15, 23, 42, 0.95) !important;
+    box-shadow: 0 0 16px var(--accent-blue-glow) !important;
+    background: #0f172a !important;
+    color: #38bdf8 !important; /* Glows crisp cyan when actively typing */
 }
+
+/* Router Static Routes Section */
+#router-static-routes-container {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    box-sizing: border-box;
+    margin-top: 14px;
+}
+
+.static-routes-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.static-routes-header .sr-col-title {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.static-route-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.static-route-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(56, 189, 248, 0.3);
+}
+
+.static-route-row .route-dest,
+.static-route-row .route-nexthop {
+    flex: 1;
+    font-size: 0.92rem !important;
+    padding: 0.65rem 0.8rem !important;
+    background: rgba(0, 0, 0, 0.55) !important;
+    color: #ffffff !important;
+    font-family: 'Consolas', 'Fira Code', 'Monaco', monospace !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.5px !important;
+}
+
+.static-route-row .route-dest.active-input,
+.static-route-row .route-nexthop.active-input {
+    background: #090e17 !important;
+    color: #38bdf8 !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.45) !important;
+}
+
+.static-route-row .remove-route-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.static-route-row .remove-route-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    transform: scale(1.05);
+}
+
+.no-routes-placeholder {
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.add-route-action-btn {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.add-route-action-btn:hover {
+    background: var(--accent-blue);
+    color: #0b1120;
+    box-shadow: 0 0 12px var(--accent-blue-glow);
+    transform: translateY(-1px);
+}
+
 
 .ping-source-badge {
     background: rgba(255, 255, 255, 0.05);
@@ -1386,6 +1528,29 @@ body.lite-mode .node.newly-added {
 
 body.lite-mode .cable.temp-cable {
     animation: none !important;
+}
+
+body.lite-mode .keypad-input {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    color: #ffffff !important;
+}
+
+body.lite-mode .keypad-input.active-input {
+    background: #0f172a !important;
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+    box-shadow: none !important;
+}
+
+body.lite-mode .static-route-row {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+}
+
+body.lite-mode #router-static-routes-container {
+    background: #0f172a !important;
+    border-color: #334155 !important;
 }
 
 body.lite-mode * {
