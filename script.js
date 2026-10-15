@@ -2,6 +2,34 @@
 let lastAddTimestamp = 0;
 let activeKeypadInput = null;
 
+// --- Canvas Pan & Zoom State ---
+let pan = { x: 0, y: 0 };
+let zoom = 1.0;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 3.0;
+
+function screenToWorkspace(clientX, clientY) {
+    const ws = document.getElementById('workspace');
+    if (!ws) return { x: clientX, y: clientY };
+    const rect = ws.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    return {
+        x: (sx - pan.x) / zoom,
+        y: (sy - pan.y) / zoom
+    };
+}
+
+function workspaceToScreen(wx, wy) {
+    const ws = document.getElementById('workspace');
+    if (!ws) return { x: wx, y: wy };
+    const rect = ws.getBoundingClientRect();
+    return {
+        x: rect.left + pan.x + wx * zoom,
+        y: rect.top + pan.y + wy * zoom
+    };
+}
+
 window.handleAddDevice = function(type, e) {
     const now = Date.now();
     if (now - lastAddTimestamp < 200) return;
@@ -16,8 +44,12 @@ window.handleAddDevice = function(type, e) {
     const w = ws.clientWidth || rect.width || 500;
     const h = ws.clientHeight || rect.height || 400;
     
-    const x = Math.max(15, Math.min(w - 75, (w / 2) - 32 + (Math.random() * 80 - 40)));
-    const y = Math.max(15, Math.min(h - 75, (h / 2) - 32 + (Math.random() * 80 - 40)));
+    const centerScreenX = rect.left + w / 2;
+    const centerScreenY = rect.top + h / 2;
+    const center = screenToWorkspace(centerScreenX, centerScreenY);
+    
+    const x = center.x - 32 + (Math.random() * 80 - 40);
+    const y = center.y - 32 + (Math.random() * 80 - 40);
     
     if (typeof createNode === 'function') {
         createNode(type, x, y);
@@ -264,11 +296,93 @@ document.addEventListener('fullscreenchange', () => {
 
 // --- Network Simulator Core State ---
 const workspace = document.getElementById('workspace');
+const workspaceCanvas = document.getElementById('workspace-canvas');
 const svgLayer = document.getElementById('connection-layer');
 const logContent = document.getElementById('log-content');
 const nodeContextMenu = document.getElementById('node-context-menu');
 const ctxNodeName = document.getElementById('ctx-node-name');
 const ctxCloseBtn = document.getElementById('ctx-close');
+
+let isPanning = false;
+let panStartPoint = { x: 0, y: 0 };
+let didPan = false;
+let touchStartDistance = 0;
+let touchStartZoom = 1;
+
+function applyTransform() {
+    if (workspaceCanvas) {
+        workspaceCanvas.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`;
+    }
+    const gridSize = Math.round(24 * zoom);
+    workspace.style.backgroundSize = `${gridSize}px ${gridSize}px, 100% 100%`;
+    workspace.style.backgroundPosition = `${pan.x}px ${pan.y}px, 0 0`;
+    
+    const zoomVal = document.getElementById('canvas-zoom-val');
+    if (zoomVal) {
+        zoomVal.textContent = `${Math.round(zoom * 100)}%`;
+    }
+}
+
+function setZoom(newZoom, centerAtViewport = false) {
+    newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
+    if (Math.abs(newZoom - zoom) < 0.001) return;
+
+    if (centerAtViewport) {
+        const rect = workspace.getBoundingClientRect();
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const wx = (cx - pan.x) / zoom;
+        const wy = (cy - pan.y) / zoom;
+        pan.x = cx - wx * newZoom;
+        pan.y = cy - wy * newZoom;
+    }
+    zoom = newZoom;
+    applyTransform();
+    saveTopology();
+}
+
+function fitView() {
+    const nodeKeys = Object.keys(nodes);
+    const rect = workspace.getBoundingClientRect();
+    const wsWidth = rect.width || 800;
+    const wsHeight = rect.height || 600;
+
+    if (nodeKeys.length === 0) {
+        pan = { x: 0, y: 0 };
+        zoom = 1.0;
+        applyTransform();
+        saveTopology();
+        return;
+    }
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodeKeys.forEach(id => {
+        const n = nodes[id];
+        if (n.x < minX) minX = n.x;
+        if (n.x + 64 > maxX) maxX = n.x + 64;
+        if (n.y < minY) minY = n.y;
+        if (n.y + 64 > maxY) maxY = n.y + 64;
+    });
+
+    const topoWidth = maxX - minX;
+    const topoHeight = maxY - minY;
+    const padding = 100;
+
+    const scaleX = (wsWidth - padding * 2) / Math.max(topoWidth, 100);
+    const scaleY = (wsHeight - padding * 2) / Math.max(topoHeight, 100);
+    const targetZoom = Math.min(1.25, Math.max(0.35, Math.min(scaleX, scaleY)));
+
+    const topoCenterX = minX + topoWidth / 2;
+    const topoCenterY = minY + topoHeight / 2;
+
+    pan.x = (wsWidth / 2) - (topoCenterX * targetZoom);
+    pan.y = (wsHeight / 2) - (topoCenterY * targetZoom);
+    zoom = targetZoom;
+
+    applyTransform();
+    saveTopology();
+    if (typeof addLog === 'function') addLog('info', 'Tampilan area kerja dipusatkan.');
+}
 
 let activeContextMenuNode = null;
 let relocatingNodeId = null;
@@ -348,10 +462,14 @@ document.getElementById('clear-workspace').addEventListener('click', () => {
     if (confirm('Bersihkan semua perangkat dan koneksi pada area kerja?')) {
         nodes = {};
         links = [];
-        workspace.querySelectorAll('.node').forEach(n => n.remove());
-        workspace.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
+        const targetParent = workspaceCanvas || workspace;
+        targetParent.querySelectorAll('.node').forEach(n => n.remove());
+        targetParent.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
         svgLayer.innerHTML = '';
         svgLayer.appendChild(tempLine);
+        pan = { x: 0, y: 0 };
+        zoom = 1.0;
+        applyTransform();
         addLog('info', 'Area kerja telah dibersihkan.');
         saveTopology();
     }
@@ -505,10 +623,8 @@ workspace.addEventListener('drop', e => {
     e.preventDefault();
     const type = e.dataTransfer.getData('type');
     if (type) {
-        const rect = workspace.getBoundingClientRect();
-        const x = Math.max(10, Math.min(rect.width - 74, e.clientX - rect.left - 32));
-        const y = Math.max(10, Math.min(rect.height - 74, e.clientY - rect.top - 32));
-        createNode(type, x, y);
+        const p = screenToWorkspace(e.clientX, e.clientY);
+        createNode(type, p.x - 32, p.y - 32);
     }
 });
 
@@ -555,7 +671,8 @@ function createNode(type, x, y) {
         el.appendChild(icon);
     }
     el.appendChild(label);
-    workspace.appendChild(el);
+    const targetParent = workspaceCanvas || workspace;
+    targetParent.appendChild(el);
 
     setTimeout(() => {
         el.classList.remove('newly-added');
@@ -643,21 +760,30 @@ function updateLabel(id) {
 }
 
 // --- Node Interactions (Drag, Tap, Context Menu) ---
+let hasMovedNode = false;
+let nodeDragStartPoint = { x: 0, y: 0 };
+
 function setupNodeInteractions(el) {
-    let startPoint = { x: 0, y: 0 };
     let isTouchActive = false;
 
     function handleStart(e) {
         const isTouch = e.type.startsWith('touch');
         isTouchActive = isTouch;
         const point = isTouch ? e.touches[0] : e;
-        startPoint = { x: point.clientX, y: point.clientY };
+        nodeDragStartPoint = { x: point.clientX, y: point.clientY };
+        hasMovedNode = false;
 
         if (currentMode === 'select') {
             draggedNode = el;
-            const rect = el.getBoundingClientRect();
-            offset.x = point.clientX - rect.left;
-            offset.y = point.clientY - rect.top;
+            const p = screenToWorkspace(point.clientX, point.clientY);
+            const id = el.dataset.id;
+            if (nodes[id]) {
+                offset.x = p.x - nodes[id].x;
+                offset.y = p.y - nodes[id].y;
+            } else {
+                offset.x = 32;
+                offset.y = 32;
+            }
             el.style.cursor = 'grabbing';
             e.stopPropagation();
         } else if (currentMode === 'connect') {
@@ -673,11 +799,11 @@ function setupNodeInteractions(el) {
             if (!connectingNode) {
                 connectingNode = el.dataset.id;
                 el.classList.add('connecting');
-                const rect = workspace.getBoundingClientRect();
+                const p = screenToWorkspace(point.clientX, point.clientY);
                 tempLine.setAttribute('x1', nodes[connectingNode].x + 32);
                 tempLine.setAttribute('y1', nodes[connectingNode].y + 32);
-                tempLine.setAttribute('x2', point.clientX - rect.left);
-                tempLine.setAttribute('y2', point.clientY - rect.top);
+                tempLine.setAttribute('x2', p.x);
+                tempLine.setAttribute('y2', p.y);
                 tempLine.style.display = 'block';
             }
             e.stopPropagation();
@@ -700,9 +826,9 @@ function setupNodeInteractions(el) {
             return;
         }
 
-        if (currentMode === 'select') {
+        if (currentMode === 'select' && !hasMovedNode) {
             const point = e.changedTouches ? e.changedTouches[0] : e;
-            const dist = Math.hypot(point.clientX - startPoint.x, point.clientY - startPoint.y);
+            const dist = Math.hypot(point.clientX - nodeDragStartPoint.x, point.clientY - nodeDragStartPoint.y);
             if (dist < 8) {
                 e.stopPropagation();
                 if (relocatingNodeId) return;
@@ -714,6 +840,10 @@ function setupNodeInteractions(el) {
     el.addEventListener('touchend', handleEnd);
 
     el.addEventListener('click', (e) => {
+        if (hasMovedNode) {
+            hasMovedNode = false;
+            return;
+        }
         if (!isTouchActive && currentMode === 'select' && !relocatingNodeId) {
             e.stopPropagation();
             showContextMenu(el.dataset.id, e.clientX, e.clientY);
@@ -722,6 +852,7 @@ function setupNodeInteractions(el) {
 
     el.addEventListener('dblclick', (e) => {
         e.stopPropagation();
+        hideContextMenu();
         if (currentMode === 'select') {
             openConfigModal(el.dataset.id);
         }
@@ -790,22 +921,58 @@ if (ctxCloseBtn) {
 
 // Global Move Handler (Mouse & Touch)
 function handleGlobalMove(e) {
-    if (!draggedNode && !connectingNode) return;
-    
     const isTouch = e.type.startsWith('touch');
     const point = isTouch ? e.touches[0] : e;
+
+    // Handle two-finger pinch to zoom on touch screens
+    if (isTouch && e.touches && e.touches.length === 2) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const currentDist = Math.hypot(dx, dy);
+        if (touchStartDistance > 0) {
+            const factor = currentDist / touchStartDistance;
+            const rect = workspace.getBoundingClientRect();
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+            const wx = (midX - pan.x) / zoom;
+            const wy = (midY - pan.y) / zoom;
+            const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStartZoom * factor));
+            pan.x = midX - wx * newZoom;
+            pan.y = midY - wy * newZoom;
+            zoom = newZoom;
+            applyTransform();
+        }
+        return;
+    }
+
+    // Handle Canvas Pan (Drag background to pan left/right/up/down)
+    if (isPanning) {
+        if (isTouch) e.preventDefault();
+        const newPanX = point.clientX - panStartPoint.x;
+        const newPanY = point.clientY - panStartPoint.y;
+        if (Math.hypot(newPanX - pan.x, newPanY - pan.y) > 3) {
+            didPan = true;
+        }
+        pan.x = newPanX;
+        pan.y = newPanY;
+        applyTransform();
+        return;
+    }
+
+    if (!draggedNode && !connectingNode) return;
     
     if (isTouch && (draggedNode || connectingNode)) {
         e.preventDefault();
     }
 
     if (draggedNode && currentMode === 'select') {
-        const rect = workspace.getBoundingClientRect();
-        let x = point.clientX - rect.left - offset.x;
-        let y = point.clientY - rect.top - offset.y;
-        
-        x = Math.max(0, Math.min(x, rect.width - 64));
-        y = Math.max(26, Math.min(y, rect.height - 64));
+        if (Math.hypot(point.clientX - nodeDragStartPoint.x, point.clientY - nodeDragStartPoint.y) > 4) {
+            hasMovedNode = true;
+        }
+        const p = screenToWorkspace(point.clientX, point.clientY);
+        let x = p.x - offset.x;
+        let y = p.y - offset.y;
 
         draggedNode.style.left = `${x}px`;
         draggedNode.style.top = `${y}px`;
@@ -818,11 +985,9 @@ function handleGlobalMove(e) {
         
         updateConnections();
     } else if (currentMode === 'connect' && connectingNode) {
-        const rect = workspace.getBoundingClientRect();
-        let mouseX = point.clientX - rect.left;
-        let mouseY = point.clientY - rect.top;
-        tempLine.setAttribute('x2', mouseX);
-        tempLine.setAttribute('y2', mouseY);
+        const p = screenToWorkspace(point.clientX, point.clientY);
+        tempLine.setAttribute('x2', p.x);
+        tempLine.setAttribute('y2', p.y);
     }
 }
 
@@ -830,6 +995,14 @@ window.addEventListener('mousemove', handleGlobalMove);
 window.addEventListener('touchmove', handleGlobalMove, { passive: false });
 
 function handleGlobalEnd() {
+    if (isPanning) {
+        isPanning = false;
+        workspace.classList.remove('is-panning');
+        workspace.style.cursor = '';
+        saveTopology();
+    }
+    touchStartDistance = 0;
+
     if (draggedNode) {
         draggedNode.style.cursor = 'grab';
         draggedNode = null;
@@ -840,17 +1013,95 @@ function handleGlobalEnd() {
 window.addEventListener('mouseup', handleGlobalEnd);
 window.addEventListener('touchend', handleGlobalEnd);
 
+// Canvas Background Pan Initiation (Mouse & Touch)
+workspace.addEventListener('mousedown', (e) => {
+    if (e.target.closest('#canvas-controls') || e.target.closest('.node') || e.target.closest('.cable') || e.target.closest('.cable-port-badge')) {
+        return;
+    }
+    // Middle click OR Left click on empty canvas
+    if (e.button === 1 || e.button === 0) {
+        isPanning = true;
+        didPan = false;
+        panStartPoint = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+        workspace.classList.add('is-panning');
+        workspace.style.cursor = 'grabbing';
+    }
+});
+
+workspace.addEventListener('touchstart', (e) => {
+    if (e.target.closest('#canvas-controls') || e.target.closest('.node') || e.target.closest('.cable') || e.target.closest('.cable-port-badge')) {
+        return;
+    }
+    if (e.touches.length === 2) {
+        isPanning = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchStartDistance = Math.hypot(dx, dy);
+        touchStartZoom = zoom;
+        return;
+    }
+    if (e.touches.length === 1) {
+        isPanning = true;
+        didPan = false;
+        panStartPoint = { x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y };
+        workspace.classList.add('is-panning');
+    }
+}, { passive: false });
+
+// Mouse Wheel Zoom centered at cursor
+workspace.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = workspace.getBoundingClientRect();
+    const mouseScreenX = e.clientX - rect.left;
+    const mouseScreenY = e.clientY - rect.top;
+
+    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * zoomFactor));
+
+    const wx = (mouseScreenX - pan.x) / zoom;
+    const wy = (mouseScreenY - pan.y) / zoom;
+
+    pan.x = mouseScreenX - wx * newZoom;
+    pan.y = mouseScreenY - wy * newZoom;
+    zoom = newZoom;
+
+    applyTransform();
+    saveTopology();
+}, { passive: false });
+
+// Floating Zoom & Fit View Button Event Listeners
+document.getElementById('btn-zoom-in')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setZoom(zoom * 1.25, true);
+});
+
+document.getElementById('btn-zoom-out')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setZoom(zoom / 1.25, true);
+});
+
+document.getElementById('btn-zoom-reset')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setZoom(1.0, true);
+});
+
+document.getElementById('btn-fit-view')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fitView();
+});
+
 // Workspace Click / Relocate Handler
 workspace.addEventListener('click', (e) => {
+    if (didPan) {
+        didPan = false;
+        return;
+    }
     hideContextMenu();
 
     if (relocatingNodeId && nodes[relocatingNodeId]) {
-        const rect = workspace.getBoundingClientRect();
-        let x = e.clientX - rect.left - 32;
-        let y = e.clientY - rect.top - 32;
-        
-        x = Math.max(0, Math.min(x, rect.width - 64));
-        y = Math.max(26, Math.min(y, rect.height - 64));
+        const p = screenToWorkspace(e.clientX, e.clientY);
+        let x = p.x - 32;
+        let y = p.y - 32;
         
         const node = nodes[relocatingNodeId];
         node.x = x;
@@ -867,7 +1118,7 @@ workspace.addEventListener('click', (e) => {
         return;
     }
 
-    if (currentMode === 'connect' && connectingNode && e.target === workspace) {
+    if (currentMode === 'connect' && connectingNode && (e.target === workspace || e.target === workspaceCanvas)) {
         if (nodes[connectingNode]) nodes[connectingNode].element.classList.remove('connecting');
         connectingNode = null;
         tempLine.style.display = 'none';
@@ -888,6 +1139,22 @@ document.getElementById('ctx-config').addEventListener('click', (e) => {
     const id = activeContextMenuNode;
     hideContextMenu();
     if (id) openConfigModal(id);
+});
+
+document.getElementById('ctx-rename')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const id = activeContextMenuNode;
+    hideContextMenu();
+    if (id && nodes[id]) {
+        openConfigModal(id);
+        setTimeout(() => {
+            const nameInput = document.getElementById('config-name');
+            if (nameInput) {
+                nameInput.focus();
+                nameInput.select();
+            }
+        }, 150);
+    }
 });
 
 document.getElementById('ctx-move').addEventListener('click', (e) => {
@@ -920,7 +1187,10 @@ function deleteNode(id) {
     const node = nodes[id];
     if (!node) return;
     
-    if (workspace.contains(node.element)) {
+    const targetParent = workspaceCanvas || workspace;
+    if (targetParent.contains(node.element)) {
+        targetParent.removeChild(node.element);
+    } else if (workspace.contains(node.element)) {
         workspace.removeChild(node.element);
     }
     
@@ -1071,11 +1341,12 @@ function updateConnections() {
 
 function updatePortBadge(link, badgeIdx, routerNode, otherNode, rx, ry, dx, dy, dist) {
     const badgeKey = `badge${badgeIdx}`;
+    const targetParent = workspaceCanvas || workspace;
     
     if (routerNode.type !== 'router') {
         if (link[badgeKey]) {
-            if (workspace.contains(link[badgeKey])) {
-                workspace.removeChild(link[badgeKey]);
+            if (targetParent.contains(link[badgeKey])) {
+                targetParent.removeChild(link[badgeKey]);
             }
             link[badgeKey] = null;
         }
@@ -1095,8 +1366,8 @@ function updatePortBadge(link, badgeIdx, routerNode, otherNode, rx, ry, dx, dy, 
 
     if (!matchedEth) {
         if (link[badgeKey]) {
-            if (workspace.contains(link[badgeKey])) {
-                workspace.removeChild(link[badgeKey]);
+            if (targetParent.contains(link[badgeKey])) {
+                targetParent.removeChild(link[badgeKey]);
             }
             link[badgeKey] = null;
         }
@@ -1115,7 +1386,7 @@ function updatePortBadge(link, badgeIdx, routerNode, otherNode, rx, ry, dx, dy, 
     if (!link[badgeKey]) {
         const badge = document.createElement('div');
         badge.className = 'cable-port-badge';
-        workspace.appendChild(badge);
+        targetParent.appendChild(badge);
         link[badgeKey] = badge;
     }
 
@@ -1136,11 +1407,12 @@ function deleteConnection(id1, id2) {
     if (svgLayer.contains(link.element)) {
         svgLayer.removeChild(link.element);
     }
-    if (link.badge1 && workspace.contains(link.badge1)) {
-        workspace.removeChild(link.badge1);
+    const targetParent = workspaceCanvas || workspace;
+    if (link.badge1 && targetParent.contains(link.badge1)) {
+        targetParent.removeChild(link.badge1);
     }
-    if (link.badge2 && workspace.contains(link.badge2)) {
-        workspace.removeChild(link.badge2);
+    if (link.badge2 && targetParent.contains(link.badge2)) {
+        targetParent.removeChild(link.badge2);
     }
     links.splice(linkIndex, 1);
     
@@ -1324,6 +1596,14 @@ function openConfigModal(id) {
     document.getElementById('modal-title').innerText = `Konfigurasi ${node.name}`;
     document.getElementById('delete-node-btn').style.display = 'inline-flex';
     
+    const nameInput = document.getElementById('config-name');
+    if (nameInput) {
+        nameInput.value = node.name || '';
+    }
+    
+    const nameGroup = document.getElementById('name-config-group');
+    if (nameGroup) nameGroup.style.display = 'flex';
+
     if (node.type === 'switch') {
         document.getElementById('ip-config-group').style.display = 'none';
         document.getElementById('subnet-config-group').style.display = 'none';
@@ -1382,6 +1662,11 @@ function openConfigModal(id) {
     
     configModal.classList.add('active');
 }
+
+document.getElementById('config-name')?.addEventListener('focus', () => {
+    document.querySelectorAll('.keypad-input').forEach(el => el.classList.remove('active-input'));
+    activeKeypadInput = null;
+});
 
 function closeModal() {
     configModal.classList.remove('active');
@@ -1447,6 +1732,14 @@ function parsePrefix(prefixStr) {
 saveConfigBtn.addEventListener('click', () => {
     if (activeNodeId) {
         const node = nodes[activeNodeId];
+        const nameInput = document.getElementById('config-name');
+        if (nameInput) {
+            const enteredName = nameInput.value.trim();
+            if (enteredName) {
+                node.name = enteredName;
+            }
+        }
+
         if (node.type === 'pc') {
             const newIp = ipInput.value.trim();
             const newSubnet = subnetInput.value.trim();
@@ -1465,7 +1758,7 @@ saveConfigBtn.addEventListener('click', () => {
             node.subnet = newSubnet;
             node.gateway = newGateway;
             updateLabel(activeNodeId);
-            addLog('success', `Konfigurasi tersimpan untuk ${node.name}. IP: ${node.ip}, Gateway: ${node.gateway}`);
+            addLog('success', `Konfigurasi tersimpan untuk ${node.name}. IP: ${node.ip || '-'}, Gateway: ${node.gateway || '-'}`);
         } else if (node.type === 'router') {
             const interfaces = Object.keys(node.interfaces);
             let hasError = false;
@@ -1510,6 +1803,9 @@ saveConfigBtn.addEventListener('click', () => {
             updateLabel(activeNodeId);
 
             addLog('success', `Konfigurasi Router ${node.name} berhasil diperbarui.`);
+        } else if (node.type === 'switch') {
+            updateLabel(activeNodeId);
+            addLog('success', `Nama Switch diperbarui menjadi ${node.name}.`);
         }
         updateConnections();
         saveTopology();
@@ -2013,6 +2309,8 @@ function findPath(startId, endId) {
 function saveTopology() {
     const data = {
         nodeCounter: nodeCounter,
+        pan: pan,
+        zoom: zoom,
         nodes: {}
     };
     for (const id in nodes) {
@@ -2035,16 +2333,27 @@ function saveTopology() {
 
 function loadTopology() {
     const saved = localStorage.getItem('networkTopology');
-    if (!saved) return;
+    if (!saved) {
+        applyTransform();
+        return;
+    }
     
     try {
         const data = JSON.parse(saved);
         nodeCounter = data.nodeCounter || 0;
+        if (data.pan && typeof data.pan.x === 'number') {
+            pan = { x: data.pan.x, y: data.pan.y };
+        }
+        if (typeof data.zoom === 'number') {
+            zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, data.zoom));
+        }
+        applyTransform();
         
         nodes = {};
         links = [];
-        workspace.querySelectorAll('.node').forEach(n => n.remove());
-        workspace.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
+        const targetParent = workspaceCanvas || workspace;
+        targetParent.querySelectorAll('.node').forEach(n => n.remove());
+        targetParent.querySelectorAll('.cable-port-badge').forEach(b => b.remove());
         svgLayer.innerHTML = '';
         svgLayer.appendChild(tempLine);
         
@@ -2079,7 +2388,7 @@ function loadTopology() {
                 el.appendChild(icon);
             }
             el.appendChild(label);
-            workspace.appendChild(el);
+            targetParent.appendChild(el);
 
             nodes[id] = {
                 id: id,

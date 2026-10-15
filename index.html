@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="style.css?v=2.7">
+    <link rel="stylesheet" href="style.css?v=2.8">
 </head>
 <body>
     <canvas id="network-canvas"></canvas>
@@ -116,10 +116,31 @@
                     <i class="fa-solid fa-diagram-project"></i>
                     <span>Area Kerja Topologi</span>
                 </div>
-                <svg id="connection-layer">
-                    <!-- Lines and ping packet animations will be injected here -->
-                </svg>
-                <!-- Dropped devices will be injected here -->
+                
+                <!-- Transformable Canvas Viewport (Pan & Zoom) -->
+                <div id="workspace-canvas" class="workspace-canvas">
+                    <svg id="connection-layer">
+                        <!-- Lines and ping packet animations will be injected here -->
+                    </svg>
+                    <!-- Dropped devices will be injected here -->
+                </div>
+
+                <!-- Floating Canvas Navigation & Zoom Controls -->
+                <div class="workspace-floating-controls glass" id="canvas-controls">
+                    <button id="btn-zoom-in" class="canvas-ctrl-btn" type="button" title="Perbesar Tampilan (+)">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                    <button id="btn-zoom-reset" class="canvas-ctrl-btn zoom-val-btn" type="button" title="Reset Zoom (100%)">
+                        <span id="canvas-zoom-val">100%</span>
+                    </button>
+                    <button id="btn-zoom-out" class="canvas-ctrl-btn" type="button" title="Perkecil Tampilan (-)">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <div class="ctrl-divider"></div>
+                    <button id="btn-fit-view" class="canvas-ctrl-btn" type="button" title="Pusatkan Seluruh Topologi (Fit View)">
+                        <i class="fa-solid fa-crosshairs"></i>
+                    </button>
+                </div>
             </section>
 
             <!-- Floating trigger when dock is minimized -->
@@ -164,6 +185,10 @@
                 <button class="close-btn" id="close-modal" type="button">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="config-group" id="name-config-group">
+                    <label><i class="fa-solid fa-tag"></i> Nama Perangkat</label>
+                    <input type="text" id="config-name" class="standard-text-input" placeholder="e.g. PC1, Server, PC-Admin" maxlength="30" autocomplete="off">
+                </div>
                 <div class="config-group" id="ip-config-group">
                     <label><i class="fa-solid fa-network-wired"></i> IP Address</label>
                     <input type="text" id="config-ip" class="keypad-input" placeholder="e.g. 192.168.1.2" inputmode="none" readonly>
@@ -332,10 +357,11 @@
         </div>
         <button id="ctx-ping" class="ctx-btn highlight" type="button"><i class="fa-solid fa-bolt"></i> Tes Ping</button>
         <button id="ctx-config" class="ctx-btn" type="button"><i class="fa-solid fa-gear"></i> Konfigurasi IP</button>
+        <button id="ctx-rename" class="ctx-btn" type="button"><i class="fa-solid fa-pen-to-square"></i> Ganti Nama</button>
         <button id="ctx-move" class="ctx-btn" type="button"><i class="fa-solid fa-arrows-up-down-left-right"></i> Pindah Posisi</button>
         <button id="ctx-delete" class="ctx-btn danger" type="button"><i class="fa-solid fa-trash"></i> Hapus Perangkat</button>
     </div>
 
-    <script src="script.js?v=2.7"></script>
+    <script src="script.js?v=2.8"></script>
 </body>
 </html>
